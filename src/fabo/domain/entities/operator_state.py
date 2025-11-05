@@ -12,6 +12,13 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 
+# Import velocity tracker at end to avoid circular imports
+def _get_velocity_tracker_class():
+    """Lazy import to avoid circular dependency."""
+    from fabo.domain.services.velocity_tracker import VelocityTracker
+    return VelocityTracker
+
+
 class OperatorMode(str, Enum):
     """Operational mode for the operator."""
 
@@ -69,6 +76,18 @@ class OperatorState(BaseModel):
     screenshots_taken: int = Field(0, description="Number of screenshots captured")
     llm_calls_made: int = Field(0, description="Number of LLM vision calls made")
 
+    # Velocity tracking (new!)
+    velocity_data: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Velocity tracker data (serialized)",
+    )
+    current_velocity: float = Field(0.0, description="Current velocity (change per hour)")
+    current_acceleration: float = Field(0.0, description="Current acceleration")
+    is_accelerating: bool = Field(False, description="Whether metric is accelerating")
+    eta_to_threshold_seconds: float | None = Field(
+        None, description="Estimated seconds until threshold"
+    )
+
     # Metadata
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -123,21 +142,71 @@ class OperatorState(BaseModel):
         return proximity >= self.threshold_proximity_percent
 
     def update_mode(self) -> None:
-        """Update operational mode based on current state."""
+        """Update operational mode based on current state AND velocity.
+
+        This new implementation considers:
+        - Proximity to threshold (original logic)
+        - Velocity and acceleration (new!)
+        - Estimated time to threshold
+        """
         if self.mode == OperatorMode.SCREENSHOT_ONLY:
             return  # Don't change if forced to screenshot only
 
-        should_screenshot = self.should_use_screenshot_mode()
+        # Get velocity tracker
+        tracker = self.get_velocity_tracker()
 
-        if should_screenshot and self.mode != OperatorMode.SCREENSHOT:
-            self.mode = OperatorMode.SCREENSHOT
-            self.check_interval = self.screenshot_mode_interval
-        elif not should_screenshot and self.mode != OperatorMode.API:
-            self.mode = OperatorMode.API
-            self.check_interval = self.api_mode_interval
+        # Calculate velocity metrics if we have enough data
+        if self.current_value is not None:
+            velocity_metrics = tracker.calculate_velocity()
+
+            # Get adaptive intervals based on velocity
+            recommendations = tracker.get_recommended_interval(
+                velocity_metrics,
+                self.current_value,
+                self.next_threshold,
+                self.api_mode_interval,
+                self.screenshot_mode_interval,
+            )
+
+            # Update velocity stats for display/logging
+            self.current_velocity = recommendations["velocity"]
+            self.current_acceleration = recommendations["acceleration"]
+            self.is_accelerating = velocity_metrics.is_accelerating
+            self.eta_to_threshold_seconds = recommendations.get("eta_seconds")
+
+            # Use recommended mode from velocity analysis
+            recommended_mode = recommendations["recommended_mode"]
+
+            # Also consider proximity (original logic)
+            should_screenshot_proximity = self.should_use_screenshot_mode()
+
+            # Switch to screenshot if EITHER:
+            # 1. Velocity predicts milestone is imminent (<6 hours), OR
+            # 2. Proximity is high (>90% of threshold)
+            should_screenshot = (
+                recommended_mode == "screenshot" or should_screenshot_proximity
+            )
+
+            if should_screenshot and self.mode != OperatorMode.SCREENSHOT:
+                self.mode = OperatorMode.SCREENSHOT
+                self.check_interval = recommendations["screenshot_interval"]
+            elif not should_screenshot and self.mode != OperatorMode.API:
+                self.mode = OperatorMode.API
+                self.check_interval = recommendations["api_interval"]
+        else:
+            # Fallback to original logic if no velocity data
+            should_screenshot = self.should_use_screenshot_mode()
+            if should_screenshot and self.mode != OperatorMode.SCREENSHOT:
+                self.mode = OperatorMode.SCREENSHOT
+                self.check_interval = self.screenshot_mode_interval
+            elif not should_screenshot and self.mode != OperatorMode.API:
+                self.mode = OperatorMode.API
+                self.check_interval = self.api_mode_interval
 
     def update_value(self, new_value: int) -> bool:
         """Update current metric value and check for threshold crossing.
+
+        Also updates velocity tracker with new data point.
 
         Args:
             new_value: New metric value.
@@ -147,8 +216,16 @@ class OperatorState(BaseModel):
         """
         old_value = self.current_value
         self.current_value = new_value
-        self.last_check = datetime.now(timezone.utc)
-        self.updated_at = datetime.now(timezone.utc)
+        timestamp = datetime.now(timezone.utc)
+        self.last_check = timestamp
+        self.updated_at = timestamp
+
+        # Add to velocity tracker
+        tracker = self.get_velocity_tracker()
+        tracker.add_snapshot(new_value, timestamp)
+
+        # Save tracker state
+        self.velocity_data = tracker.to_dict()
 
         # Check if threshold was crossed
         if self.next_threshold and old_value and new_value >= self.next_threshold:
@@ -207,6 +284,23 @@ class OperatorState(BaseModel):
             "total": api_cost + screenshot_cost + llm_cost,
         }
 
+    def get_velocity_tracker(self):
+        """Get velocity tracker instance from serialized data.
+
+        Returns:
+            VelocityTracker instance.
+        """
+        VelocityTracker = _get_velocity_tracker_class()
+
+        if self.velocity_data:
+            return VelocityTracker.from_dict(self.velocity_data)
+        else:
+            tracker = VelocityTracker()
+            # Initialize with current value if available
+            if self.current_value is not None:
+                tracker.add_snapshot(self.current_value)
+            return tracker
+
     def get_summary(self) -> str:
         """Get human-readable summary of state.
 
@@ -214,9 +308,20 @@ class OperatorState(BaseModel):
             Formatted summary string.
         """
         proximity = self.calculate_proximity()
+
+        # Format velocity info
+        velocity_str = ""
+        if self.current_velocity != 0:
+            velocity_str = f" | Velocity: {self.current_velocity:+.1f}/hr"
+            if self.is_accelerating:
+                velocity_str += " ⚡"
+            if self.eta_to_threshold_seconds:
+                hours = self.eta_to_threshold_seconds / 3600
+                velocity_str += f" | ETA: {hours:.1f}h"
+
         return (
             f"{self.run_id}: {self.current_value or 'Unknown'}/{self.next_threshold} "
-            f"({proximity:.1f}% proximity) - Mode: {self.mode.value} - "
+            f"({proximity:.1f}% proximity) - Mode: {self.mode.value}{velocity_str} - "
             f"Checks: {self.total_checks} (API: {self.api_calls_made}, "
             f"Screenshots: {self.screenshots_taken})"
         )
