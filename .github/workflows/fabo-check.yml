@@ -1,0 +1,188 @@
+name: FABO Milestone Check
+
+on:
+  # Run every 30 minutes
+  schedule:
+    - cron: '*/30 * * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      config:
+        description: 'Run configuration to execute'
+        required: false
+        default: 'runs/example-github-stars.yaml'
+      mode:
+        description: 'Force specific mode (api, screenshot, hybrid)'
+        required: false
+        default: ''
+
+jobs:
+  check-milestones:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Need full history to commit milestone data back
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv sync
+
+      - name: Run FABO operator
+        env:
+          # Required: Steel.dev API key for screenshots
+          STEEL_API_KEY: ${{ secrets.STEEL_API_KEY }}
+
+          # Platform API keys (as needed)
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+
+          # LLM API keys (at least one required for screenshot mode)
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          CONFIG="${{ github.event.inputs.config || 'runs/example-github-stars.yaml' }}"
+          MODE="${{ github.event.inputs.mode }}"
+
+          if [ -n "$MODE" ]; then
+            uv run fabo run --config "$CONFIG" --mode "$MODE"
+          else
+            uv run fabo run --config "$CONFIG"
+          fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ github.run_number }}
+          path: screenshots/
+          retention-days: 30
+
+      - name: Upload state files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-${{ github.run_number }}
+          path: data/
+          retention-days: 90
+
+      - name: Commit milestone data
+        if: success()
+        run: |
+          git config user.name "FABO Bot"
+          git config user.email "fabo-bot@users.noreply.github.com"
+
+          # Add data files
+          git add data/runs/*.json
+          git add data/milestones/*.json 2>/dev/null || true
+          git add screenshots/*.png 2>/dev/null || true
+
+          # Commit if there are changes
+          if ! git diff --quiet --staged; then
+            git commit -m "chore: update milestone data [skip ci]
+
+            Run: ${{ github.run_number }}
+            Workflow: ${{ github.workflow }}
+            Triggered by: ${{ github.actor }}
+            "
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create issue on milestone
+        if: success() && hashFiles('data/milestones/*.json') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Find newest milestone file
+            const milestonesDir = 'data/milestones';
+            const files = fs.readdirSync(milestonesDir)
+              .filter(f => f.endsWith('.json'))
+              .map(f => ({
+                name: f,
+                time: fs.statSync(path.join(milestonesDir, f)).mtime.getTime()
+              }))
+              .sort((a, b) => b.time - a.time);
+
+            if (files.length > 0) {
+              const latestFile = path.join(milestonesDir, files[0].name);
+              const milestone = JSON.parse(fs.readFileSync(latestFile, 'utf8'));
+
+              // Create celebratory issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🎉 Milestone Reached: ${milestone.metric} = ${milestone.actual_value}!`,
+                body: `## Milestone Achieved! 🎊
+
+                We've reached a new milestone on **${milestone.platform}**!
+
+                - **Metric**: ${milestone.metric}
+                - **Threshold**: ${milestone.threshold}
+                - **Actual Value**: ${milestone.actual_value}
+                - **Timestamp**: ${milestone.timestamp}
+                ${milestone.screenshot_path ? `- **Screenshot**: See artifacts\n` : ''}
+                ${milestone.confidence ? `- **Confidence**: ${(milestone.confidence * 100).toFixed(1)}%\n` : ''}
+
+                ---
+
+                *Automatically detected by FABO*
+                `,
+                labels: ['milestone', 'celebration', 'automated']
+              });
+            }
+
+# Add a separate job for running multiple configs
+check-all:
+  runs-on: ubuntu-latest
+  if: github.event_name == 'workflow_dispatch'
+  strategy:
+    matrix:
+      config:
+        - runs/example-github-stars.yaml
+        # Add more configs here:
+        # - runs/twitter-followers.yaml
+        # - runs/linkedin-connections.yaml
+
+  steps:
+    # Same steps as above but run for each config
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: uv sync
+
+    - name: Run FABO for ${{ matrix.config }}
+      env:
+        STEEL_API_KEY: ${{ secrets.STEEL_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      run: |
+        uv run fabo run --config ${{ matrix.config }}

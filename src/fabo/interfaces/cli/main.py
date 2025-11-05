@@ -8,6 +8,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from fabo.interfaces.cli.commands.run import run_command
+
 app = typer.Typer(
     name="fabo",
     help="📸 FABO - Fabulous screen-shooter of your social media milestones",
@@ -15,6 +17,9 @@ app = typer.Typer(
 )
 
 console = Console()
+
+# Register run command
+app.command(name="run", help="Run a milestone tracking configuration")(run_command)
 
 
 @app.command()

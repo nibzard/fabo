@@ -7,7 +7,7 @@
 <div align="center">
  <strong>FABO - Fabulous screen-shooter of your social media milestones</strong>
  <br />
- A command-line tool that celebrates your social media achievements by automagically capturing screenshots of major milestones.
+ An intelligent milestone tracker that automatically captures screenshots when your metrics reach important thresholds.
  <br />
  <br />
  <a href="https://github.com/nkkko/fabo/issues/new?assignees=&labels=bug&template=01_BUG_REPORT.md&title=bug%3A+">Report a Bug</a>
@@ -26,262 +26,143 @@
 
 </div>
 
-<details open="open">
-<summary>Table of Contents</summary>
-
-- [About](#about)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Built With](#built-with)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
-- [Usage](#usage)
-  - [CLI Commands](#cli-commands)
-  - [API](#api)
-- [Development](#development)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-
-</details>
-
 ---
 
-## About
+## 🎯 What Makes FABO Different?
 
-FABO is a Python-based CLI tool that tracks social media milestones across multiple platforms and automatically captures screenshots when milestones are reached. Never miss celebrating your achievements again!
+**Smart Optimization**: FABO doesn't just poll APIs constantly. It intelligently switches between API mode (cheap, fast) and screenshot mode (accurate, visual) based on proximity to your milestones.
 
-### The Story
+**LLM-Powered Validation**: Uses Claude 3.5 Sonnet or GPT-4 Vision to extract metrics directly from screenshots - perfect for platforms with restricted APIs or when you need visual proof.
 
-FABO was born from a real need while tracking [Daytona](https://github.com/daytonaio/daytona) as it approached 4,000 stars. Despite our best intentions, we consistently failed to capture the exact moment milestones were reached. Our teammate Fabo always managed to save the day, so we built this tool in their honor!
+**CI/CD Native**: Designed for GitHub Actions. Each operator run is independent and can be triggered via cron, workflows, or manually.
 
-## Features
+**Modular Architecture**: Domain-Driven Design with clean separation. Add new platforms by implementing a simple operator interface.
 
-- **Multi-Platform Support**: Track GitHub, Twitter/X, and LinkedIn (extensible to more platforms)
-- **Automated Screenshot Capture**: Uses [Steel.dev](https://steel.dev) headless browser API for high-quality screenshots
-- **Configurable Thresholds**: Set custom milestone values for each platform and metric
-- **Scheduled Checks**: Automatic periodic checking with configurable intervals
-- **Domain-Driven Design**: Clean, modular architecture for easy extension
-- **REST API**: Programmatic access for integrations
-- **CLI Interface**: User-friendly command-line interface
-- **Type-Safe**: Full type hints with mypy strict mode
-- **Well-Documented**: Extensive inline documentation and guides
-
-### Supported Platforms
-
-| Platform | Metrics | Status |
-|----------|---------|--------|
-| GitHub | Stars, Forks, Watchers, Issues | ✅ Implemented |
-| Twitter/X | Followers, Tweets | ✅ Implemented |
-| LinkedIn | Connections, Followers | ⚠️ Limited (API restrictions) |
-| YouTube | Subscribers, Views | 📋 Planned |
-| Instagram | Followers, Posts | 📋 Planned |
-
-## Architecture
-
-FABO follows **Domain-Driven Design (DDD)** principles with a clean, layered architecture:
-
-```
-┌─────────────────────────────────────────┐
-│         Interface Layer                 │
-│    (CLI, REST API, Web UI future)       │
-├─────────────────────────────────────────┤
-│       Application Layer                 │
-│  (Use Cases, DTOs, Orchestration)       │
-├─────────────────────────────────────────┤
-│         Domain Layer                    │
-│ (Entities, Value Objects, Repositories) │
-├─────────────────────────────────────────┤
-│      Infrastructure Layer               │
-│ (Operators, Steel.dev, Database, Cron)  │
-└─────────────────────────────────────────┘
-```
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed documentation.
-
-## Built With
-
-- **Python 3.12+** - Modern Python with latest features
-- **[uv](https://github.com/astral-sh/uv)** - Fast Python package manager
-- **[Steel.dev](https://steel.dev)** - Headless browser API for screenshots
-- **[FastAPI](https://fastapi.tiangolo.com/)** - Modern web framework for API
-- **[Typer](https://typer.tiangolo.com/)** - CLI framework
-- **[Pydantic](https://docs.pydantic.dev/)** - Data validation
-- **[SQLAlchemy](https://www.sqlalchemy.org/)** - Database ORM
-- **[APScheduler](https://apscheduler.readthedocs.io/)** - Task scheduling
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.12 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
-- [Steel.dev](https://steel.dev) API key (free tier available)
-- Platform API credentials (GitHub token, Twitter bearer token, etc.)
-
-### Installation
-
-1. **Clone the repository**
+## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/nkkko/fabo.git
-cd fabo
-```
-
-2. **Install dependencies using uv**
-
-```bash
+# Install
+git clone https://github.com/nkkko/fabo.git && cd fabo
 uv sync
-```
 
-3. **Copy environment template**
-
-```bash
+# Configure
 cp .env.example .env
+# Edit .env with your API keys
+
+# Create a run config
+cat > runs/my-stars.yaml <<EOF
+id: github-myrepo-stars
+platform: github
+target:
+  owner: myusername
+  repo: myrepo
+metrics:
+  - type: stars
+    thresholds: [100, 500, 1000]
+optimization:
+  api_mode_interval: 3600
+  screenshot_mode_interval: 300
+  threshold_proximity_percent: 90
+enabled: true
+EOF
+
+# Run it!
+fabo run --config runs/my-stars.yaml
 ```
 
-4. **Edit `.env` with your credentials**
+See [Quick Start Guide](docs/quick-start.md) for detailed instructions.
 
-```bash
-# Required
-STEEL_API_KEY=your-steel-api-key
+## 📖 How It Works
 
-# Platform credentials (as needed)
-GITHUB_TOKEN=your-github-token
-TWITTER_BEARER_TOKEN=your-twitter-bearer-token
+### The Smart Optimization Strategy
+
+FABO uses intelligent mode switching to minimize costs while capturing exact milestone moments:
+
+- **Far from threshold (< 90%)**: Use API mode → Check hourly → $0 cost
+- **Near threshold (≥ 90%)**: Switch to screenshot mode → Check every 5min → LLM validates
+- **Milestone reached**: Save screenshot → Record milestone → Back to API mode
+
+**Cost Example**: Tracking to 1,000 stars costs ~$40-50 vs. $2,000+ with constant screenshots!
+
+## ✨ Features
+
+### Core Capabilities
+- ✅ **Multi-Platform Support**: GitHub, Twitter/X, LinkedIn (extensible)
+- ✅ **Dual-Mode Operation**: Smart switching between API and screenshot modes
+- ✅ **LLM Vision**: Claude 3.5 Sonnet / GPT-4V for metric extraction
+- ✅ **GitHub Actions Ready**: Built for CI/CD workflows
+- ✅ **Cron Compatible**: Independent execution model
+- ✅ **State Management**: Continuous tracking across runs
+- ✅ **Cost Optimization**: Minimize API calls and screenshots
+
+### Platform Support
+
+| Platform | API Mode | Screenshot Mode | Status |
+|----------|----------|-----------------|--------|
+| GitHub | ✅ Stars, Forks, Watchers | ✅ | Production |
+| Twitter/X | ✅ Followers, Tweets | ✅ | Production |
+| LinkedIn | ⚠️ Limited | ✅ | Beta |
+| YouTube | 📋 Planned | 📋 Planned | Roadmap |
+| Instagram | 📋 Planned | 📋 Planned | Roadmap |
+
+## 🏗️ Architecture
+
+FABO uses **Domain-Driven Design** with smart operators that make intelligent decisions. See [ARCHITECTURE_V2.md](ARCHITECTURE_V2.md) for detailed documentation.
+
+## 🤖 GitHub Actions
+
+Create `.github/workflows/fabo-check.yml`:
+
+```yaml
+name: FABO Milestone Check
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv sync
+      - env:
+          STEEL_API_KEY: ${{ secrets.STEEL_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run fabo run --config runs/my-run.yaml
 ```
 
-5. **Copy configuration template**
+## 📚 Documentation
 
-```bash
-cp config.yaml.example config.yaml
-```
+- [Quick Start Guide](docs/quick-start.md) - Get up and running in 5 minutes
+- [Architecture V2](ARCHITECTURE_V2.md) - Smart optimization design  
+- [Operator Guide](docs/operators.md) - Add new platforms
 
-6. **Edit `config.yaml` to configure platforms and thresholds**
+## 🗺️ Roadmap
 
-### Configuration
+- [x] Smart dual-mode operators
+- [x] LLM vision extraction
+- [x] GitHub Actions support
+- [ ] Database persistence
+- [ ] REST API & Web UI
+- [ ] YouTube & Instagram
 
-See [docs/configuration.md](docs/configuration.md) for detailed configuration options.
+## 📄 License
 
-## Usage
+MIT License - see [LICENSE](LICENSE).
 
-### CLI Commands
+## 🙏 Acknowledgements
 
-```bash
-# Check for milestones now
-fabo check
-
-# Check specific platform
-fabo check --platform github
-
-# Configure a platform
-fabo configure github
-
-# List captured milestones
-fabo list
-
-# Show status
-fabo status
-
-# Start API server
-fabo serve
-
-# Enable scheduler for automatic checks
-fabo schedule --enable --interval 3600
-```
-
-### API
-
-Start the API server:
-
-```bash
-fabo serve
-```
-
-Access API documentation at `http://localhost:8000/docs`
-
-Example endpoints:
-- `POST /api/v1/milestones/check` - Trigger milestone check
-- `GET /api/v1/milestones` - List milestones
-- `GET /api/v1/platforms` - List configured platforms
-
-## Development
-
-### Setup Development Environment
-
-```bash
-# Install with dev dependencies
-uv sync --extra dev
-
-# Run tests
-pytest
-
-# Format code
-black src/
-
-# Lint code
-ruff check src/
-
-# Type check
-mypy src/
-```
-
-### Project Structure
-
-```
-fabo/
-├── src/fabo/
-│   ├── domain/              # Domain models
-│   ├── application/         # Use cases
-│   ├── infrastructure/      # External services
-│   └── interfaces/          # CLI, API
-├── tests/                   # Test suite
-├── docs/                    # Documentation
-└── pyproject.toml          # Project config
-```
-
-## Roadmap
-
-- [x] Core DDD architecture
-- [x] GitHub operator
-- [x] Twitter operator
-- [x] Steel.dev integration
-- [x] CLI interface
-- [ ] Database persistence (SQLite/PostgreSQL)
-- [ ] Scheduler implementation
-- [ ] REST API implementation
-- [ ] Web UI
-- [ ] Multi-user support
-- [ ] Cloud storage for screenshots
-- [ ] Notification channels (email, Slack, Discord)
-- [ ] AI-powered milestone predictions
-
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) first.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgements
-
-- Inspired by the real-life FABO who never missed a milestone
-- Built while tracking [Daytona](https://github.com/daytonaio/daytona) on its journey to GitHub stardom
-- Powered by [Steel.dev](https://steel.dev) for reliable screenshot capture
-- Special thanks to all contributors and the open-source community
+- Powered by [Steel.dev](https://steel.dev) & [Anthropic Claude](https://anthropic.com)
+- Inspired by the real FABO who never missed a milestone
 
 ---
 
 <div align="center">
+<strong>Never miss a milestone again! 🎉</strong>
+<br />
 Made with ❤️ by <a href="https://github.com/nkkko">nkkko</a>
 </div>

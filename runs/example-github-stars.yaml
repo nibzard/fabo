@@ -1,0 +1,70 @@
+# Example run configuration for tracking GitHub repository stars
+#
+# This configuration can be executed independently via:
+# - Cron: */30 * * * * fabo run --config runs/example-github-stars.yaml
+# - GitHub Actions: See .github/workflows/fabo-check.yml
+# - Manual: fabo run --config runs/example-github-stars.yaml
+
+id: github-nkkko-fabo-stars
+name: "FABO Repository Stars"
+description: "Track stars for the FABO repository on GitHub"
+
+# Platform configuration
+platform: github
+target:
+  owner: nkkko
+  repo: fabo
+
+# Metrics to track
+metrics:
+  - type: stars
+    thresholds: [10, 50, 100, 500, 1000, 5000, 10000]
+
+# Optimization settings
+optimization:
+  # When to use each mode:
+  # - API mode: Fast, cheap, when far from threshold
+  # - Screenshot mode: Slower, costs more, but captures exact moment
+
+  # Check every 1 hour when in API mode (far from threshold)
+  api_mode_interval: 3600
+
+  # Check every 5 minutes when in screenshot mode (near threshold)
+  screenshot_mode_interval: 300
+
+  # Switch to screenshot mode at 90% of threshold
+  # Example: If threshold is 1000 and current is 900+, use screenshots
+  threshold_proximity_percent: 90
+
+  # Minimum confidence score from LLM to accept metric extraction
+  min_confidence: 0.85
+
+  # Maximum retries if confidence is low
+  max_retries: 3
+
+# Notifications
+notifications:
+  enabled: true
+  channels:
+    - console    # Print to console
+    # - email    # Future: Email notifications
+    # - slack    # Future: Slack notifications
+    # - discord  # Future: Discord notifications
+
+# State persistence
+state_file: "runs/github-nkkko-fabo-stars.json"
+
+# Enable this run
+enabled: true
+
+# Tags for organization
+tags:
+  - github
+  - stars
+  - primary
+
+# Additional metadata
+metadata:
+  repository_url: "https://github.com/nkkko/fabo"
+  created_by: "nkkko"
+  purpose: "Track main repo milestones"
