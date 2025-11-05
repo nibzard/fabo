@@ -1,0 +1,66 @@
+# Example: Track a competitor's repository without API access
+#
+# This demonstrates screenshot-only mode for monitoring repositories
+# you don't own or don't have API access to.
+
+id: competitor-awesome-project-stars
+name: "Competitor Awesome Project Stars"
+description: "Track competitor's GitHub repository stars"
+
+# Platform configuration
+platform: github
+target:
+  owner: competitor-org
+  repo: awesome-project
+
+# Metrics to track
+metrics:
+  - type: stars
+    # Track their major milestones
+    thresholds: [5000, 10000, 20000, 50000, 100000]
+
+# Optimization settings
+optimization:
+  # Force screenshot-only mode (no API needed)
+  mode: screenshot_only
+
+  # Check every hour (stars change slowly at this scale)
+  screenshot_mode_interval: 3600
+
+  # High confidence required
+  min_confidence: 0.90
+
+  max_retries: 3
+
+# Notifications
+notifications:
+  enabled: true
+  channels:
+    - console
+
+# State persistence
+state_file: "runs/competitor-awesome-project-stars.json"
+
+# Enable this run
+enabled: true
+
+# Tags for organization
+tags:
+  - github
+  - competitor
+  - market-research
+
+# Additional metadata
+metadata:
+  repository_url: "https://github.com/competitor-org/awesome-project"
+  purpose: "Competitive intelligence and market research"
+  notes: |
+    This configuration doesn't use GitHub API at all.
+    Perfect for:
+    - Tracking competitors
+    - Monitoring projects you don't control
+    - Avoiding API rate limits
+    - Getting visual proof of metrics
+
+    Cost: ~$0.05 per check
+    Daily cost: ~$1.20 (24 checks)

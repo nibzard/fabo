@@ -9,6 +9,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from fabo.interfaces.cli.commands.run import run_command
+from fabo.interfaces.cli.commands.list_runs import list_runs_command
+from fabo.interfaces.cli.commands.show_milestones import show_milestones_command
+from fabo.interfaces.cli.commands.status import status_command
 
 app = typer.Typer(
     name="fabo",
@@ -18,8 +21,11 @@ app = typer.Typer(
 
 console = Console()
 
-# Register run command
+# Register commands
 app.command(name="run", help="Run a milestone tracking configuration")(run_command)
+app.command(name="runs", help="List all configured tracking runs")(list_runs_command)
+app.command(name="milestones", help="Show captured milestones")(show_milestones_command)
+app.command(name="status", help="Show FABO status and statistics")(status_command)
 
 
 @app.command()
