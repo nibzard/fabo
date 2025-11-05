@@ -1,0 +1,65 @@
+# Example run configuration for tracking Twitter/X followers
+#
+# This configuration demonstrates screenshot-heavy mode for platforms
+# where API access may be rate-limited or restricted.
+
+id: twitter-myhandle-followers
+name: "Twitter Followers"
+description: "Track Twitter/X follower milestones"
+
+# Platform configuration
+platform: twitter
+target:
+  username: your_twitter_handle
+
+# Metrics to track
+metrics:
+  - type: followers
+    thresholds: [100, 500, 1000, 5000, 10000, 50000, 100000]
+
+# Optimization settings
+optimization:
+  # Twitter API v2 has strict rate limits
+  # Use longer API intervals or switch to screenshot-only mode
+  api_mode_interval: 7200  # Check every 2 hours when far
+
+  # Near threshold, check more frequently
+  screenshot_mode_interval: 600  # Check every 10 minutes when close
+
+  # Switch to screenshots earlier (95% instead of 90%)
+  # because follower counts can jump quickly
+  threshold_proximity_percent: 95
+
+  # Twitter profile screenshots are usually clear
+  min_confidence: 0.90
+
+  # Fewer retries since UI is consistent
+  max_retries: 2
+
+  # Uncomment to force screenshot-only mode (no API)
+  # This is useful if you don't have API access or want
+  # to track a competitor's account
+  # mode: screenshot_only
+
+# Notifications
+notifications:
+  enabled: true
+  channels:
+    - console
+
+# State persistence
+state_file: "runs/twitter-myhandle-followers.json"
+
+# Enable this run
+enabled: true
+
+# Tags for organization
+tags:
+  - twitter
+  - followers
+  - social
+
+# Additional metadata
+metadata:
+  profile_url: "https://twitter.com/your_twitter_handle"
+  notes: "Twitter API rate limits: 15 requests per 15 minutes (user context)"

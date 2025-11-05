@@ -1,0 +1,83 @@
+# FABO Configuration File
+# Copy this to config.yaml and customize as needed
+
+# Platform configurations
+platforms:
+  github:
+    enabled: true
+    repositories:
+      - owner: nkkko
+        name: fabo
+      # Add more repositories
+      # - owner: username
+      #   name: repo-name
+    milestone_thresholds:
+      stars: [10, 50, 100, 500, 1000, 5000, 10000]
+      forks: [10, 50, 100, 500, 1000]
+      watchers: [10, 50, 100, 500]
+    check_interval: 3600  # Check every hour
+
+  twitter:
+    enabled: false
+    username: your_twitter_username
+    milestone_thresholds:
+      followers: [100, 500, 1000, 5000, 10000, 50000, 100000]
+      tweets: [100, 500, 1000, 5000, 10000]
+    check_interval: 3600
+
+  linkedin:
+    enabled: false
+    profile_url: https://www.linkedin.com/in/your-profile
+    milestone_thresholds:
+      connections: [100, 500, 1000, 5000]
+      followers: [100, 500, 1000, 5000, 10000]
+    check_interval: 7200  # Check every 2 hours
+
+# Screenshot settings
+screenshots:
+  storage_path: ./screenshots
+  format: png
+  full_page: true
+  quality: 90
+  viewport:
+    width: 1920
+    height: 1080
+
+# Notification settings
+notifications:
+  enabled: true
+  channels:
+    console:
+      enabled: true
+    # Future: email, slack, discord, webhook
+    # email:
+    #   enabled: false
+    #   smtp_server: smtp.gmail.com
+    #   smtp_port: 587
+    #   from_address: your-email@example.com
+    #   to_addresses:
+    #     - recipient@example.com
+
+# Storage settings
+storage:
+  type: local  # local, s3 (future)
+  # s3:
+  #   bucket: fabo-screenshots
+  #   region: us-east-1
+  #   prefix: screenshots/
+
+# Scheduler settings
+scheduler:
+  enabled: true
+  timezone: UTC
+  max_workers: 5
+
+# Logging settings
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: json  # json, text
+  file:
+    enabled: true
+    path: ./logs/fabo.log
+    max_size_mb: 10
+    backup_count: 5

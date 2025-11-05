@@ -1,0 +1,71 @@
+# Example run configuration for tracking LinkedIn connections
+#
+# NOTE: LinkedIn API has very restricted access. This configuration
+# uses screenshot-only mode as the default approach.
+
+id: linkedin-profile-connections
+name: "LinkedIn Connections"
+description: "Track LinkedIn professional connections"
+
+# Platform configuration
+platform: linkedin
+target:
+  # LinkedIn profile URL
+  profile_url: "https://www.linkedin.com/in/your-profile-name"
+
+  # Or use username (will construct URL)
+  # username: your-profile-name
+
+# Metrics to track
+metrics:
+  - type: connections
+    thresholds: [100, 500, 1000, 2000, 5000, 10000]
+
+# Optimization settings
+optimization:
+  # LinkedIn API access is highly restricted
+  # Use screenshot-only mode by default
+  mode: screenshot_only
+
+  # Check every 2 hours (connections grow slowly)
+  screenshot_mode_interval: 7200
+
+  # This doesn't apply in screenshot_only mode but kept for reference
+  threshold_proximity_percent: 90
+
+  # LinkedIn UI can vary, require high confidence
+  min_confidence: 0.88
+
+  # More retries for LLM extraction
+  max_retries: 3
+
+# Notifications
+notifications:
+  enabled: true
+  channels:
+    - console
+
+# State persistence
+state_file: "runs/linkedin-profile-connections.json"
+
+# Enable this run
+enabled: true
+
+# Tags for organization
+tags:
+  - linkedin
+  - connections
+  - professional
+
+# Additional metadata
+metadata:
+  notes: |
+    LinkedIn API requires OAuth 2.0 and partner access for most metrics.
+    This configuration uses screenshot-only mode which works without API access.
+
+    The LLM will extract your connection count from screenshots of your profile.
+
+    Tips:
+    - Make sure you're logged in to LinkedIn in the browser session
+    - Steel.dev will need cookies/session for authenticated screenshots
+    - Check runs less frequently (connections change slowly)
